@@ -1,0 +1,16 @@
+! Example diffusion problem
+! x_min     x_max     y_min     y_max
+    0.0       1.0       0.0       1.0
+! M         N
+     10        10
+! gamma
+    1.0
+! boundary conditions
+! west
+      D       0.0
+! south
+      D       0.0
+! east
+      D       1.0
+! north
+      D       1.0
