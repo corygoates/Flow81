@@ -26,7 +26,8 @@ program diffusion_solver
 
     ! Solve
     call mesh_sor(mesh)
-    write(*,*) mesh%phi
+    write(*,*) mesh%phi(mesh%N_cp/2+1)
+    write(*,*) abs(mesh%phi(mesh%N_cp/2+1)-0.25d0)/0.25d0
 
     ! Clean up
     call mesh_deallocate(mesh)
