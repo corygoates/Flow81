@@ -158,8 +158,8 @@ subroutine mesh_set_up_matrices(t)
             if (j .eq. 1) then
                 if (t%W_bc%type .eq. 'D') then
                     phi_bc = t%W_bc%a+t%W_bc%b*t%y_cp(i)+t%W_bc%c*t%y_cp(i)**2.0
-                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dy/t%dx
-                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dy*phi_bc/t%dx
+                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dy*phi_bc/t%dx
+                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dy/t%dx
                 else
                     dphi_dn = t%W_bc%a+t%W_bc%b*t%y_cp(i)+t%W_bc%c*t%y_cp(i)**2.0
                     t%Sp(ind) = t%Sp(ind) - t%dy*t%gamma*dphi_dn
@@ -172,8 +172,8 @@ subroutine mesh_set_up_matrices(t)
             if (j .eq. t%n_cols) then
                 if (t%E_bc%type .eq. 'D') then
                     phi_bc = t%E_bc%a+t%E_bc%b*t%y_cp(i)+t%E_bc%c*t%y_cp(i)**2.0
-                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dy/t%dx
-                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dy*phi_bc/t%dx
+                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dy*phi_bc/t%dx
+                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dy/t%dx
                 else
                     dphi_dn = t%E_bc%a+t%E_bc%b*t%y_cp(i)+t%E_bc%c*t%y_cp(i)**2.0
                     t%Sp(ind) = t%Sp(ind) + t%dy*t%gamma*dphi_dn
@@ -186,8 +186,8 @@ subroutine mesh_set_up_matrices(t)
             if (i .eq. 1) then
                 if (t%S_bc%type .eq. 'D') then
                     phi_bc = t%S_bc%a+t%S_bc%b*t%x_cp(j)+t%S_bc%c*t%x_cp(j)**2.0
-                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dx/t%dy
-                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dx*phi_bc/t%dy
+                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dx*phi_bc/t%dy
+                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dx/t%dy
                 else
                     dphi_dn = t%S_bc%a+t%S_bc%b*t%x_cp(j)+t%S_bc%c*t%x_cp(j)**2.0
                     t%Sp(ind) = t%Sp(ind) - t%dx*t%gamma*dphi_dn
@@ -200,8 +200,8 @@ subroutine mesh_set_up_matrices(t)
             if (i .eq. t%n_rows) then
                 if (t%N_bc%type .eq. 'D') then
                     phi_bc = t%N_bc%a+t%N_bc%b*t%x_cp(j)+t%N_bc%c*t%x_cp(j)**2.0
-                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dx/t%dy
-                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dx*phi_bc/t%dy
+                    t%Su(ind) = t%Su(ind) + 2.0*t%gamma*t%dx*phi_bc/t%dy
+                    t%Sp(ind) = t%Sp(ind) - 2.0*t%gamma*t%dx/t%dy
                 else
                     dphi_dn = t%N_bc%a+t%N_bc%b*t%x_cp(j)+t%N_bc%c*t%x_cp(j)**2.0
                     t%Sp(ind) = t%Sp(ind) + t%dx*t%gamma*dphi_dn
@@ -239,7 +239,7 @@ subroutine mesh_sor(t)
         do i = 1, t%N_cp
 
             ! Calculate correction
-            corr = t%AW(i)*t%phi(t%W_ind(i)) + t%AW(i)*t%phi(t%E_ind(i))
+            corr = t%AW(i)*t%phi(t%W_ind(i)) + t%AE(i)*t%phi(t%E_ind(i))
             corr = corr + t%AS(i)*t%phi(t%S_ind(i)) + t%AN(i)*t%phi(t%N_ind(i))
             corr = corr + t%Su(i) - t%AP(i)*t%phi(i)
             corr = corr*t%omega/t%AP(i)
