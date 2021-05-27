@@ -2,7 +2,7 @@
 ! x_min     x_max     y_min     y_max
     0.0       1.0       0.0       1.0
 ! M         N
-     10        10
+      3         3
 ! gamma
     1.0
 ! boundary conditions
@@ -14,3 +14,6 @@
       D       0.0       1.0       0.0
 ! north
       D       0.0       1.0       0.0
+! solver options
+! omega      conv  max_iter
+    1.0     1e-10      1000

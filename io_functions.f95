@@ -19,6 +19,7 @@ subroutine display_inputs(mesh)
     write (*,*) "Grid is ", mesh%n_rows, " rows by ", mesh%n_cols, " columns."
     write (*,*) "    dx: ", mesh%dx
     write (*,*) "    dy: ", mesh%dy
+    write (*,*) "    Total control points: ", mesh%N_cp
     write (*,*)
 
     ! Boundary conditions

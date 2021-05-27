@@ -21,4 +21,14 @@ program diffusion_solver
     ! Display inputs
     call display_inputs(mesh)
 
+    ! Set up problem
+    call mesh_set_up_matrices(mesh)
+
+    ! Solve
+    call mesh_sor(mesh)
+    write(*,*) mesh%phi
+
+    ! Clean up
+    call mesh_deallocate(mesh)
+
 end program diffusion_solver
