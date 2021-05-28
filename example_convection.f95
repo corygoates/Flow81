@@ -128,11 +128,40 @@ program example_convection
     ! Northwest corner
     Su(1,ny) = m_w*phi_wbc
     Sp(1,ny) = -m_e-(m_n-m_s)
-    AW = 0.0
-    AN = 0.0
+    AW(1,ny) = 0.0
+    AN(1,ny) = 0.0
+
     S_u(1,ny) = m_w*phi_wbc
     S_p(1,ny) = -m_e-(m_n-m_s)
-    A_W = 0.0
-    A_N = 0.0
+    A_W(1,ny) = 0.0
+    A_N(1,ny) = 0.0
+
+    ! Southwest corner
+    Su(1,1) = m_w*phi_wbc+m_s*phi_sbc
+    Sp(1,1) = -m_e-m_n
+    AE(1,1) = 0.0
+    AW(1,1) = 0.0
+    AN(1,1) = 0.0
+    AS(1,1) = 0.0
+
+    S_u(1,1) = m_w*phi_wbc+m_s*phi_sbc
+    S_p(1,1) = -m_e-m_n
+    A_W(1,1) = 0.0
+    A_E(1,1) = -0.5*m_e
+    A_S(1,1) = 0.0
+    A_N(1,1) = -0.5*m_n
+
+    ! Southeast corner
+    Su(1,nx) = m_s*phi_sbc
+    Sp(1,nx) = -m_n-(m_e-m_w)
+    AW(1,nx) = 0.0
+    AN(1,nx) = 0.0
+
+    S_u(1,nx) = m_s*phi_sbc
+    S_p(1,nx) = -m_n-(m_e-m_w)
+    A_W(1,nx) = 0.0
+    A_N(1,nx) = 0.0
+
+    ! Northeast corner
     
 end program example_convection
