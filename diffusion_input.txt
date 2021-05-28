@@ -2,18 +2,19 @@
 ! x_min     x_max     y_min     y_max
     0.0       1.0       0.0       1.0
 ! M         N
-      1         1
+    100       100
 ! gamma
     1.0
 ! boundary conditions
 ! west
-      D       0.0       0.0       0.0
+      D       0.0       1.0       0.0
 ! south
       D       0.0       0.0       0.0
 ! east
       D       0.0       1.0       0.0
 ! north
-      D       0.0       1.0       0.0
+      D       1.0     -10.0      10.0
 ! solver options
-! omega      conv  max_iter
-    1.0     1e-10     100000
+! omega  max_iter
+    1.7   1000000
+

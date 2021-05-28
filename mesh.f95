@@ -11,11 +11,10 @@ module mesh_m
     
     type mesh_t
 
-        character(100) :: input_file
         integer :: n_rows, n_cols, N_cp, max_iter
         integer,allocatable,dimension(:) :: W_ind, E_ind, S_ind, N_ind
         real(kind=8) :: x_min, x_max, y_min, y_max
-        real(kind=8) :: dx, dy, gamma, omega, conv
+        real(kind=8) :: dx, dy, gamma, omega
         real(kind=8),allocatable,dimension(:) :: x_cp, y_cp, AP, AW, AS, AE, AN, Sp, Su, phi
         type(boundary_condition_t) :: W_bc, S_bc, E_bc, N_bc
 
@@ -73,14 +72,13 @@ end subroutine mesh_deallocate
 
 
 subroutine mesh_load_input(t, inp)
+
     type(mesh_t) :: t
     character(100) :: inp
     integer :: i,j
 
-    t%input_file = inp
-
     ! Read input file
-    open(1,file=t%input_file)
+    open(1,file=inp)
         read(1,*)
         read(1,*)
         read(1,*) t%x_min, t%x_max, t%y_min, t%y_max
@@ -99,7 +97,7 @@ subroutine mesh_load_input(t, inp)
         read(1,*) t%N_bc%type, t%N_bc%a, t%N_bc%b, t%N_bc%c
         read(1,*)
         read(1,*)
-        read(1,*) t%omega, t%conv, t%max_iter
+        read(1,*) t%omega, t%max_iter
     close(1)
 
     ! Parse some derived quantities
@@ -229,8 +227,8 @@ subroutine mesh_sor(t)
 
     ! Iterative SOR
     iteration = 0
-    max_corr = 1.0+t%conv
-    do while (max_corr>t%conv .and. iteration<t%max_iter)
+    max_corr = 1.0
+    do while (max_corr>1d-15 .and. iteration<t%max_iter)
 
         max_corr = 0.0
         
@@ -261,5 +259,60 @@ subroutine mesh_sor(t)
     write(*,*) "Complete! Final maximum correction: ", max_corr
 
 end subroutine mesh_sor
+
+
+subroutine mesh_write_results_to_csv(t, filename)
+
+    type(mesh_t) :: t
+    character(100) :: filename
+    integer :: i, j, ind
+    real(kind=8) :: x, y, phi
+
+    ! Open file
+    open(1,file=filename)
+
+        ! Header
+        write(1,*) 'x,y,z,phi'
+
+        ! Control points
+        ind = 0
+        do i = 1,t%n_rows
+            do j =1,t%n_cols
+                ind = ind + 1
+                write(1,*) t%x_cp(j), ',', t%y_cp(i), ',', 0.0, ',', t%phi(ind)
+            end do
+        end do
+
+        ! West and east boundaries
+        do i = 1,t%n_rows
+            y = t%y_cp(i)
+            phi = t%W_bc%a+t%W_bc%b*y+t%W_bc%c*y**2
+            write(1,*) t%x_min, ',', y, ',', 0.0, ',', phi
+            phi = t%E_bc%a+t%E_bc%b*y+t%E_bc%c*y**2
+            write(1,*) t%x_max, ',', y, ',', 0.0, ',', phi
+        end do
+
+        ! North and south boundaries
+        do i = 1,t%n_cols
+            x = t%x_cp(i)
+            phi = t%N_bc%a+t%N_bc%b*x+t%N_bc%c*x**2
+            write(1,*) x, ',', t%y_max, ',', 0.0, ',', phi
+            phi = t%S_bc%a+t%S_bc%b*x+t%S_bc%c*x**2
+            write(1,*) x, ',', t%y_min, ',', 0.0, ',', phi
+        end do
+
+        ! Corners
+        phi = t%W_bc%a+t%W_bc%b*t%y_min+t%W_bc%c*t%y_min**2 ! SW
+        write(1,*) t%x_min, ',', t%y_min, ',', 0.0, ',', phi
+        phi = t%W_bc%a+t%W_bc%b*t%y_max+t%W_bc%c*t%y_max**2 ! NW
+        write(1,*) t%x_min, ',', t%y_max, ',', 0.0, ',', phi
+        phi = t%E_bc%a+t%E_bc%b*t%y_min+t%E_bc%c*t%y_min**2 ! SE
+        write(1,*) t%x_max, ',', t%y_min, ',', 0.0, ',', phi
+        phi = t%E_bc%a+t%E_bc%b*t%y_max+t%E_bc%c*t%y_max**2 ! NE
+        write(1,*) t%x_max, ',', t%y_max, ',', 0.0, ',', phi
+
+    close(1)
+
+end subroutine mesh_write_results_to_csv
     
 end module mesh_m

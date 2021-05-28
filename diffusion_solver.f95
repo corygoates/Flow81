@@ -5,7 +5,7 @@ program diffusion_solver
     use io_functions_m
     use flow_81_math_m
 
-    character(100) :: input_file
+    character(100) :: input_file, results_file
     type(mesh_t) :: mesh
 
     ! Welcome message
@@ -28,6 +28,10 @@ program diffusion_solver
     call mesh_sor(mesh)
     write(*,*) mesh%phi(mesh%N_cp/2+1)
     write(*,*) abs(mesh%phi(mesh%N_cp/2+1)-0.25d0)/0.25d0
+
+    ! Write results to csv
+    call getarg(2, results_file)
+    call mesh_write_results_to_csv(mesh, results_file)
 
     ! Clean up
     call mesh_deallocate(mesh)
