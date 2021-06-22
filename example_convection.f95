@@ -19,7 +19,7 @@ program example_convection
     write(*,*) "--------------------------"
 
     ! Solver options
-    B = 0.9
+    B = 0.0
     max_iter = 100000
 
     ! Domain
@@ -45,6 +45,7 @@ program example_convection
     phi = 0.0
     phi(0,0:nx+1) = phi_sbc ! Southern boundary
     phi(0:ny+1,0) = phi_wbc ! Western boundary
+    phi(ny/2,0) = phi_sbc ! Western boundary
     phi(0,0) = 0.5*(phi_sbc+phi_wbc) ! Southwest corner
 
     ! Mass flows
@@ -76,12 +77,14 @@ program example_convection
     AW(2:ny-1,1) = 0.0
     Sp(2:ny-1,1) = -m_e
     Su(2:ny-1,1) = m_w*phi_wbc
+    Su(ny/2,1) = m_w*phi_sbc
 
     ! Second-order
     A_E(2:ny-1,1) = -0.5*m_e
     A_W(2:ny-1,1) = 0.0
     S_p(2:ny-1,1) = -m_e
     S_u(2:ny-1,1) = m_w*phi_wbc
+    S_u(ny/2,1) = m_w*phi_sbc
 
     ! East boundary; Neumann condition
     ! Upwind
