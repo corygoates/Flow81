@@ -1,0 +1,37 @@
+! Driven Cavity Flow
+! Geometry
+! x_min     x_max     y_min     y_max
+    0.0       1.0       0.0       1.0
+! NX        NY
+    100       100
+! Flow Properties
+! mu        rho
+    0.01      1.0
+! Boundary Conditions
+! west
+! U
+      D       0.0       0.0       0.0
+! V
+      D       0.0       0.0       0.0
+! south
+! U
+      D       0.0       0.0       0.0
+! V
+      D       0.0       0.0       0.0
+! east
+! U
+      D       0.0       0.0       0.0
+! V
+      D       0.0       0.0       0.0
+! north
+! U
+      D       1.0       0.0       0.0
+! V
+      D       0.0       0.0       0.0
+! Solver Options
+! outer iterations
+   1000
+! omegaU   omegaV    omegaP
+    0.7       0.7       0.3
+! results file
+    results/driven_cavity.csv
