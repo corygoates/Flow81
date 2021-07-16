@@ -3,7 +3,6 @@ program diffusion_solver
 
     use mesh_m
     use io_functions_m
-    use flow_81_math_m
 
     character(100) :: input_file, results_file
     type(mesh_t) :: mesh
