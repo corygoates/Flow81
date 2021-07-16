@@ -3,7 +3,7 @@
 ! x_min     x_max     y_min     y_max
     0.0       1.0       0.0       1.0
 ! NX        NY
-    100       100
+      4         4
 ! Flow Properties
 ! mu        rho
     0.01      1.0

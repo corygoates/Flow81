@@ -145,13 +145,45 @@ end subroutine ns_case_initialize
 
 subroutine ns_case_apply_bc(t)
     type(ns_case_t) :: t
+    integer :: i
 
-    ! Apply Dirichlet boundary conditions
-    ! U
-    t%U(:,0) = 0.0 ! South
-    t%U(:,t%ny+1) = 0.0 ! North
-    t%U(1,:) = 0.0 ! West
-    t%U(t%nx+1,:) = 0.0 ! East
+    ! Place scalar control points
+    do i=1,t%nx
+        t%x_cp(i) = (i+0.5)*t%dx
+    end do
+
+    do i=1,t%ny
+        t%y_cp(i) = (i+0.5)*t%dy
+    end do
+
+    ! U boundary conditions
+    do i=0,t%ny+1
+
+        ! West
+        if (t%Uw_bc%type .eq. 'D') then
+            t%U(1,i) = bc_get_value(t%Uw_bc, t%y_cp(i))
+        end if
+
+        ! East
+        if (t%Ue_bc%type .eq. 'D') then
+            t%U(t%nx+1,i) = bc_get_value(t%Ue_bc, t%y_cp(i))
+        end if
+
+    end do
+
+    do i=1,t%nx+1
+
+        ! South
+        if (t%Us_bc%type .eq. 'D') then
+            t%U(i,0) = bc_get_value(t%Us_bc, t%x_cp(i))
+        end if
+
+        ! North
+        if (t%Ue_bc%type .eq. 'D') then
+            t%U(i,t%ny+1) = bc_get_value(t%Un_bc, t%x_cp(i))
+        end if
+
+    end do
 
     ! V
     t%V(:,0) = 0.0 ! South
