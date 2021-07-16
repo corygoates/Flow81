@@ -14,4 +14,6 @@ program navier_stokes
     ! Run case
     call ns_case_run_simple(case)
 
+    ! Output
+
 end program navier_stokes

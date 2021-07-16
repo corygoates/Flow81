@@ -37,7 +37,11 @@ subroutine ns_case_allocate(t)
     allocate(t%V_old(0:t%nx+1,1:t%ny+1))
     allocate(t%x_cp(t%nx))
     allocate(t%y_cp(t%ny))
+    allocate(t%AuW(2:t%nx,1:t%ny))
+    allocate(t%AuS(2:t%nx,1:t%ny))
     allocate(t%AuE(2:t%nx,1:t%ny))
+    allocate(t%AuN(2:t%nx,1:t%ny))
+    allocate(t%AuP(2:t%nx,1:t%ny))
 
     allocated = 1
 
@@ -160,23 +164,15 @@ end subroutine ns_case_apply_bc
 
 subroutine ns_case_run_simple(t)
     type(ns_case_t) :: t
-    integer :: outer_i, inner_i, i, j
+    integer :: outer_i
 
     ! Outer loop of SIMPLE algorithm
     do outer_i = 1,t%outer_iterations
 
-        ! Calculate x-momentum coefficients
-        do i=2,t%nx
-            do j=1,t%ny
-                t%AuE(i,j) = 0
-            end do
-        end do
+        ! Handle x-momentum
+        call ns_case_x_mom(t)
 
-        ! Apply x-momentum boundary conditions
-
-        ! Iterate x-momentum
-
-        ! Iterate y-momentum
+        ! Handle y-momentum
 
         ! Solve pressure correction
 
@@ -191,5 +187,47 @@ subroutine ns_case_run_simple(t)
     end do
 
 end subroutine ns_case_run_simple
+
+subroutine ns_case_x_mom(t)
+    type(ns_case_t) :: t
+    integer :: iter, i, j
+    real(kind=8) :: mw, ms, me, mn
+
+    ! Calculate x-momentum coefficients
+    do i=2,t%nx
+        do j=1,t%ny
+
+            ! Mass flux terms
+            mw = 0.5*t%rho*(t%U(i-1,j)+t%U(i,j))
+            ms = 0.5*t%rho*(t%U(i,j-1)+t%U(i,j))
+            me = 0.5*t%rho*(t%U(i,j)+t%U(i+1,j))
+            me = 0.5*t%rho*(t%U(i,j)+t%U(i,j+1))
+
+            ! Coefs
+            t%AuW(i,j) = max(mw, 0.0)+t%mu*t%dy/t%dx
+            t%AuS(i,j) = max(ms, 0.0)+t%mu*t%dx/t%dy
+            t%AuE(i,j) = max(-me, 0.0)+t%mu*t%dy/t%dx
+            t%AuN(i,j) = max(-mn, 0.0)+t%mu*t%dx/t%dy
+            t%AuP(i,j) = t%AuW(i,j)+t%AuS(i,j)+t%AuE(i,j)+t%AuN(i,j)+ms-mw+mn-ms
+
+        end do
+    end do
+
+    ! Apply x-momentum boundary conditions
+
+    ! Iterate x-momentum
+    do iter=1,10
+        do i=2,t%nx
+            do j=1,t%ny
+
+                t%U(i,j) = (1.0-t%omegaU)*t%U_old(i,j)+&
+                t%omegaU/t%AuP(i,j)*(t%AuW(i,j)*t%U(i-1,j)+t%AuS(i,j)*t%U(i,j-1)+t%AuE(i,j)*t%U(i+1,j)+t%AuN(i,j)*t%U(i,j+1)+&
+                (t%P(i-1,j)-t%P(i,j))*t%dy)
+
+            end do
+        end do
+    end do
+
+end subroutine ns_case_x_mom
 
 end module ns_case_m
