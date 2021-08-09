@@ -14,7 +14,7 @@ module ns_case_m
         type(bc_t) :: Uw_bc, Vw_bc, Us_bc, Vs_bc, Ue_bc, Ve_bc, Un_bc, Vn_bc
         real(kind=8),allocatable,dimension(:,:) :: U, U_old, V, V_old, P ! Values
         real(kind=8),allocatable,dimension(:,:) :: P_prime ! Corrections
-        real(kind=8),allocatable,dimension(:,:) :: u_out, v_out, P_out, V_out ! Output values
+        real(kind=8),allocatable,dimension(:,:) :: u_out, v_out, P_out, v_mag_out ! Output values
         real(kind=8),allocatable,dimension(:,:) :: AuP, AuW, AuS, AuE, AuN ! x-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AvP, AvW, AvS, AvE, AvN ! y-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AP, AW, AS, AE, AN, S ! pressure coefficients
@@ -46,7 +46,7 @@ subroutine ns_case_allocate(t)
     allocate(t%u_out(0:t%nx,0:t%ny))
     allocate(t%v_out(0:t%nx,0:t%ny))
     allocate(t%P_out(0:t%nx,0:t%ny))
-    allocate(t%V_out(0:t%nx,0:t%ny))
+    allocate(t%v_mag_out(0:t%nx,0:t%ny))
 
     allocate(t%AuW(2:t%nx,1:t%ny))
     allocate(t%AuS(2:t%nx,1:t%ny))
@@ -84,6 +84,11 @@ subroutine ns_case_deallocate(t)
     deallocate(t%V_old)
     deallocate(t%x_cp)
     deallocate(t%y_cp)
+
+    deallocate(t%u_out)
+    deallocate(t%v_out)
+    deallocate(t%P_out)
+    deallocate(t%v_mag_out)
 
     deallocate(t%AuW)
     deallocate(t%AuS)
@@ -461,25 +466,37 @@ end subroutine ns_case_calc_mass_imbal
 subroutine ns_case_write_results(t)
     type(ns_case_t) :: t
     integer :: i,j
+    real(kind=8) :: x,y
 
     ! Interpolate values to scalar cell corners
     ! Center values
     do i=1,t%nx
         do j=1,t%ny
             t%P_out(i,j) = 0.25*(t%P(i,j)+t%P(i+1,j)+t%P(i,j+1)+t%P(i+1,j+1))
+            t%u_out(i,j) = 0.5*(t%U(i+1,j)+t%U(i+1,j+1))
+            t%v_out(i,j) = 0.5*(t%V(i,j+1)+t%V(i+1,j+1))
         end do
     end do
 
     ! Calculate magnitudes
-    t%V_out = sqrt(t%u_out**2+t%v_out**2)
+    t%v_mag_out = sqrt(t%u_out**2+t%v_out**2)
 
     ! Write to file
     write(*,*)
     write(*,*) 'Writing results to ', t%results_file
     open(1, file=t%results_file)
     write(1,*) 'x,y,z,P,u,v,w,V'
+    do i=0,t%nx
+        do j=0,t%ny
+            x = i*t%dx
+            y = j*t%dy
+            write(1,100) x,y,0.0,t%P_out(i,j),t%u_out(i,j),t%v_out(i,j),0.0,t%v_mag_out(i,j)
+        end do
+    end do
 
     close(1)
+
+    100   format(f8.4,', ',f8.4,', ',f8.4,', ',f8.4,', ',f8.5,', ',f8.5,', ',f8.5,', ',f8.5)
 
 end subroutine ns_case_write_results
 
