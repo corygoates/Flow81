@@ -6,13 +6,15 @@ module ns_case_m
 
     type ns_case_t
 
-        character(100) :: input_file, results_file
+        character(200) :: input_file, results_file
         real(kind=8) :: x_min, x_max, y_min, y_max
         real(kind=8) :: omegaU, omegaV, omegaP, mu, rho
         real(kind=8) :: dx, dy
         integer :: nx, ny, outer_iterations
         type(bc_t) :: Uw_bc, Vw_bc, Us_bc, Vs_bc, Ue_bc, Ve_bc, Un_bc, Vn_bc
-        real(kind=8),allocatable,dimension(:,:) :: U, U_old, V, V_old, P, P_prime ! Values
+        real(kind=8),allocatable,dimension(:,:) :: U, U_old, V, V_old, P ! Values
+        real(kind=8),allocatable,dimension(:,:) :: P_prime ! Corrections
+        real(kind=8),allocatable,dimension(:,:) :: u_out, v_out, P_out, V_out ! Output values
         real(kind=8),allocatable,dimension(:,:) :: AuP, AuW, AuS, AuE, AuN ! x-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AvP, AvW, AvS, AvE, AvN ! y-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AP, AW, AS, AE, AN, S ! pressure coefficients
@@ -32,13 +34,19 @@ subroutine ns_case_allocate(t)
 
     ! Allocate arrays
     allocate(t%P(1:t%nx,1:t%ny))
-    allocate(t%P_prime(1:t%nx,1:t%ny))
     allocate(t%U(1:t%nx+1,0:t%ny+1))
     allocate(t%V(0:t%nx+1,1:t%ny+1))
     allocate(t%U_old(1:t%nx+1,0:t%ny+1))
     allocate(t%V_old(0:t%nx+1,1:t%ny+1))
     allocate(t%x_cp(t%nx))
     allocate(t%y_cp(t%ny))
+
+    allocate(t%P_prime(1:t%nx,1:t%ny))
+
+    allocate(t%u_out(0:t%nx,0:t%ny))
+    allocate(t%v_out(0:t%nx,0:t%ny))
+    allocate(t%P_out(0:t%nx,0:t%ny))
+    allocate(t%V_out(0:t%nx,0:t%ny))
 
     allocate(t%AuW(2:t%nx,1:t%ny))
     allocate(t%AuS(2:t%nx,1:t%ny))
@@ -147,7 +155,7 @@ subroutine ns_case_load_input(t, input_file)
         read(1,*)
         read(1,*) t%omegaU, t%omegaV, t%omegaP
         read(1,*)
-        read(1,*) t%results_file
+        read(1,"(a)") t%results_file
 
     close(1)
 
@@ -235,6 +243,11 @@ subroutine ns_case_run_simple(t)
     type(ns_case_t) :: t
     integer :: outer_i
 
+    ! Initialize display
+    write(*,*)
+    write(*,*) " Outer Iteration         Mass Imbalance"
+    write(*,*) "-------------------------------------------------"
+
     ! Outer loop of SIMPLE algorithm
     do outer_i = 1,t%outer_iterations
 
@@ -248,12 +261,22 @@ subroutine ns_case_run_simple(t)
         call ns_case_pressure_corr(t)
 
         ! Correct velocities based on pressure corrections
+        call ns_case_velocity_corr(t)
 
         ! Prepare for next iteration
         t%U_old = t%U
         t%V_old = t%V
 
+        ! Calculate mass imbalance
+        call ns_case_calc_mass_imbal(t)
+
+        ! Update display
+        write(*,*) outer_i, sqrt(sum(t%S**2))
+
     end do
+
+    ! Write results
+    call ns_case_write_results(t)
 
 end subroutine ns_case_run_simple
 
@@ -373,18 +396,91 @@ subroutine ns_case_pressure_corr(t)
         end do
     end do
 
+    ! Set boundary coefficients
+    t%AW(1,:) = 0.0
+    t%AS(:,1) = 0.0
+    t%AE(t%nx,:) = 0.0
+    t%AN(:,t%ny) = 0.0
+
+    ! Calculate cell center coefficients
     t%AP = t%AW+t%AS+t%AE+t%AN
+    t%AP(1,1) = 1.0e30 ! Reference pressure cell
 
     ! Iterate
+    t%P_prime = 0.0
     do iter=1,1000
         do i=1,t%nx
             do j=1,t%ny
-                t%P_prime(i,j) = t%P_prime(i,j)+t%omegaP/t%AP(i,j)*(t%AW(i,j)*t%P_prime(i-1,j)+t%AS(i,j)*t%P_prime(i,j-1)+&
+                t%P_prime(i,j) = t%P_prime(i,j)+1.7/t%AP(i,j)*(t%AW(i,j)*t%P_prime(i-1,j)+t%AS(i,j)*t%P_prime(i,j-1)+&
                 t%AE(i,j)*t%P_prime(i+1,j)+t%AN(i,j)*t%P_prime(i,j+1)-t%S(i,j)-t%AP(i,j)*t%P_prime(i,j))
             end do
         end do
     end do
 
+    ! Update pressures
+    t%P = t%P+t%omegaP*t%P_prime
+
 end subroutine ns_case_pressure_corr
+
+
+subroutine ns_case_velocity_corr(t)
+    type(ns_case_t) :: t
+    integer :: i, j
+
+    ! Update x-velocity
+    do i=2,t%nx
+        do j=1,t%ny
+            t%U(i,j) = t%U(i,j) + t%dx/t%AuP(i,j)*(t%P_prime(i-1,j)-t%P_prime(i,j))
+        end do
+    end do
+
+    ! Update y-velocity
+    do i=1,t%nx
+        do j=2,t%ny
+            t%V(i,j) = t%V(i,j) + t%dy/t%AvP(i,j)*(t%P_prime(i,j-1)-t%P_prime(i,j))
+        end do
+    end do
+
+end subroutine ns_case_velocity_corr
+
+
+subroutine ns_case_calc_mass_imbal(t)
+    type(ns_case_t) :: t
+    integer :: i, j
+
+    ! Calculate mass sources
+    do i=1,t%nx
+        do j=1,t%ny
+            t%S(i,j) = t%rho*((t%U(i+1,j)-t%U(i,j))*t%dy+(t%V(i,j+1)-t%V(i,j))*t%dx)
+        end do
+    end do
+
+end subroutine ns_case_calc_mass_imbal
+
+
+subroutine ns_case_write_results(t)
+    type(ns_case_t) :: t
+    integer :: i,j
+
+    ! Interpolate values to scalar cell corners
+    ! Center values
+    do i=1,t%nx
+        do j=1,t%ny
+            t%P_out(i,j) = 0.25*(t%P(i,j)+t%P(i+1,j)+t%P(i,j+1)+t%P(i+1,j+1))
+        end do
+    end do
+
+    ! Calculate magnitudes
+    t%V_out = sqrt(t%u_out**2+t%v_out**2)
+
+    ! Write to file
+    write(*,*)
+    write(*,*) 'Writing results to ', t%results_file
+    open(1, file=t%results_file)
+    write(1,*) 'x,y,z,P,u,v,w,V'
+
+    close(1)
+
+end subroutine ns_case_write_results
 
 end module ns_case_m
