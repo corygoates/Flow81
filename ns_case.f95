@@ -18,7 +18,6 @@ module ns_case_m
         real(kind=8),allocatable,dimension(:,:) :: AuP, AuW, AuS, AuE, AuN ! x-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AvP, AvW, AvS, AvE, AvN ! y-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AP, AW, AS, AE, AN, S ! pressure coefficients
-        real(kind=8),allocatable,dimension(:) :: x_cp, y_cp
 
     end type ns_case_t
 
@@ -38,8 +37,6 @@ subroutine ns_case_allocate(t)
     allocate(t%V(0:t%nx+1,1:t%ny+1))
     allocate(t%U_old(1:t%nx+1,0:t%ny+1))
     allocate(t%V_old(0:t%nx+1,1:t%ny+1))
-    allocate(t%x_cp(t%nx))
-    allocate(t%y_cp(t%ny))
 
     allocate(t%P_prime(1:t%nx,1:t%ny))
 
@@ -82,8 +79,6 @@ subroutine ns_case_deallocate(t)
     deallocate(t%V)
     deallocate(t%U_old)
     deallocate(t%V_old)
-    deallocate(t%x_cp)
-    deallocate(t%y_cp)
 
     deallocate(t%u_out)
     deallocate(t%v_out)
@@ -195,42 +190,47 @@ end subroutine ns_case_initialize
 
 subroutine ns_case_apply_bc(t)
     type(ns_case_t) :: t
-    integer :: i
-
-    ! Place scalar control points
-    do i=1,t%nx
-        t%x_cp(i) = (i+0.5)*t%dx
-    end do
-
-    do i=1,t%ny
-        t%y_cp(i) = (i+0.5)*t%dy
-    end do
+    integer :: i,j
+    real(kind=8) :: x, y
 
     ! U boundary conditions
-    do i=0,t%ny+1
+    do j=0,t%ny+1
+
+        ! Get y location
+        if (j.eq.0) then
+            y = t%y_min
+        else if (j.eq.t%ny+1) then
+            y = t%y_max
+        else
+            y = (j-0.5)*t%dy
+        end if
 
         ! West
         if (t%Uw_bc%type .eq. 'D') then
-            t%U(1,i) = bc_get_value(t%Uw_bc, t%y_cp(i))
+            t%U(1,j) = bc_get_value(t%Uw_bc, y)
         end if
 
         ! East
         if (t%Ue_bc%type .eq. 'D') then
-            t%U(t%nx+1,i) = bc_get_value(t%Ue_bc, t%y_cp(i))
+            t%U(t%nx+1,j) = bc_get_value(t%Ue_bc, y)
         end if
 
     end do
 
     do i=1,t%nx+1
 
+        ! Get x location
+        x = (i-1.0)*t%dx
+
         ! South
         if (t%Us_bc%type .eq. 'D') then
-            t%U(i,0) = bc_get_value(t%Us_bc, t%x_cp(i))
+            t%U(i,0) = bc_get_value(t%Us_bc, x)
         end if
 
         ! North
         if (t%Ue_bc%type .eq. 'D') then
-            t%U(i,t%ny+1) = bc_get_value(t%Un_bc, t%x_cp(i))
+            t%U(i,t%ny+1) = bc_get_value(t%Un_bc, x)
+            write(*,*) t%U
         end if
 
     end do
@@ -470,13 +470,45 @@ subroutine ns_case_write_results(t)
 
     ! Interpolate values to scalar cell corners
     ! Center values
-    do i=1,t%nx
-        do j=1,t%ny
+    do i=1,t%nx-1
+        do j=1,t%ny-1
             t%P_out(i,j) = 0.25*(t%P(i,j)+t%P(i+1,j)+t%P(i,j+1)+t%P(i+1,j+1))
             t%u_out(i,j) = 0.5*(t%U(i+1,j)+t%U(i+1,j+1))
             t%v_out(i,j) = 0.5*(t%V(i,j+1)+t%V(i+1,j+1))
         end do
     end do
+
+    ! West boundary
+    t%P_out(0,1:t%ny-1) = 0.5*(t%P(1,1:t%ny-2)+t%P(1,2:t%ny-1))
+    t%u_out(0,1:t%ny-1) = 0.5*(t%U(1,1:t%ny-1)+t%U(1,2:t%ny))
+    t%v_out(0,1:t%ny-1) = t%V(0,2:t%ny)
+
+    ! East boundary
+    t%P_out(t%nx,1:t%ny-1) = 0.5*(t%P(t%nx,1:t%ny-2)+t%P(t%nx,2:t%ny-1))
+    t%u_out(t%nx,1:t%ny-1) = 0.5*(t%U(t%nx+1,1:t%ny-1)+t%U(t%nx+1,2:t%ny))
+    t%v_out(t%nx,1:t%ny-1) = t%V(t%nx+1,2:t%ny)
+
+    ! South boundary
+    t%P_out(1:t%nx-1,0) = 0.5*(t%P(1:t%nx-2,1)+t%P(2:t%nx-1,1))
+    t%u_out(1:t%nx-1,0) = t%U(2:t%nx,0)
+    t%v_out(1:t%nx-1,0) = 0.5*(t%V(1:t%nx-1,1)+t%V(2:t%nx,1))
+
+    ! North boundary
+    t%P_out(1:t%nx-1,t%ny) = 0.5*(t%P(1:t%nx-2,t%ny)+t%P(2:t%nx-1,t%ny))
+    t%u_out(1:t%nx-1,t%ny) = t%U(2:t%nx,t%ny+1)
+    t%v_out(1:t%nx-1,t%ny) = 0.5*(t%V(1:t%nx-1,t%ny)+t%V(2:t%nx,t%ny))
+
+    ! Northwest corner
+    t%P_out(0,t%ny) = t%P_out(1,t%ny-1)
+
+    ! Southwest corner
+    t%P_out(0,0) = t%P_out(1,1)
+
+    ! Southeast corner
+    t%P_out(t%nx,0) = t%P_out(t%nx-1,1)
+
+    ! Northeast corner
+    t%P_out(t%nx,t%ny) = t%P_out(t%nx-1,t%ny-1)
 
     ! Calculate magnitudes
     t%v_mag_out = sqrt(t%u_out**2+t%v_out**2)

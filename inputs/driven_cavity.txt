@@ -3,7 +3,7 @@
 ! x_min     x_max     y_min     y_max
     0.0       1.0       0.0       1.0
 ! NX        NY
-      4         4
+     20        20
 ! Flow Properties
 ! mu        rho
     0.01      1.0
@@ -30,7 +30,7 @@
       D       0.0       0.0       0.0
 ! Solver Options
 ! outer iterations
-   1000
+      0
 ! omegaU   omegaV    omegaP
     0.7       0.7       0.3
 ! results file
