@@ -230,15 +230,14 @@ subroutine ns_case_apply_bc(t)
         ! North
         if (t%Ue_bc%type .eq. 'D') then
             t%U(i,t%ny+1) = bc_get_value(t%Un_bc, x)
-            write(*,*) t%U
         end if
 
     end do
 
     ! V
-    t%V(:,0) = 0.0 ! South
+    t%V(:,1) = 0.0 ! South
     t%V(:,t%ny+1) = 0.0 ! North
-    t%V(1,:) = 0.0 ! West
+    t%V(0,:) = 0.0 ! West
     t%V(t%nx+1,:) = 0.0 ! East
 
 end subroutine ns_case_apply_bc
@@ -296,14 +295,13 @@ subroutine ns_case_x_mom(t)
 
             ! Mass flux terms
             mw = 0.5*t%rho*(t%U_old(i-1,j)+t%U_old(i,j))
-            ms = 0.5*t%rho*(t%V_old(i,j-1)+t%V_old(i,j))
+            ms = 0.5*t%rho*(t%V_old(i-1,j)+t%V_old(i,j))
             me = 0.5*t%rho*(t%U_old(i,j)+t%U_old(i+1,j))
-            me = 0.5*t%rho*(t%V_old(i,j)+t%V_old(i,j+1))
+            mn = 0.5*t%rho*(t%V_old(i-1,j+1)+t%V_old(i,j+1))
 
             ! Coefs
             t%AuW(i,j) = max(mw, 0.0)+t%mu*t%dy/t%dx
             t%AuE(i,j) = max(-me, 0.0)+t%mu*t%dy/t%dx
-            t%AuP(i,j) = t%AuW(i,j)+t%AuS(i,j)+t%AuE(i,j)+t%AuN(i,j)+me-mw+mn-ms
 
             ! Center cells
             if (.not.((j .eq. 1) .or. (j .eq. t%ny))) then
@@ -315,6 +313,8 @@ subroutine ns_case_x_mom(t)
                 t%AuS(i,j) = max(ms, 0.0)+2.0*t%mu*t%dx/t%dy
                 t%AuN(i,j) = max(-mn, 0.0)+2.0*t%mu*t%dx/t%dy
             end if
+
+            t%AuP(i,j) = t%AuW(i,j)+t%AuS(i,j)+t%AuE(i,j)+t%AuN(i,j)+me-mw+mn-ms
 
         end do
     end do
@@ -345,15 +345,14 @@ subroutine ns_case_y_mom(t)
         do j=2,t%ny
 
             ! Mass flux terms
-            mw = 0.5*t%rho*(t%U_old(i-1,j)+t%U_old(i,j))
+            mw = 0.5*t%rho*(t%U_old(i,j-1)+t%U_old(i,j))
             ms = 0.5*t%rho*(t%V_old(i,j-1)+t%V_old(i,j))
-            me = 0.5*t%rho*(t%U_old(i,j)+t%U_old(i+1,j))
+            me = 0.5*t%rho*(t%U_old(i+1,j-1)+t%U_old(i+1,j))
             mn = 0.5*t%rho*(t%V_old(i,j)+t%V_old(i,j+1))
 
             ! Coefs
             t%AvS(i,j) = max(ms, 0.0)+t%mu*t%dx/t%dy
-            t%AvN(i,j) = max(-mn, 0.0)+t%mu*T%dx/t%dy
-            t%AvP(i,j) = t%AvW(i,j)+t%AvS(i,j)+t%AvE(i,j)+t%AvN(i,j)+me-mw+mn-ms
+            t%AvN(i,j) = max(-mn, 0.0)+t%mu*t%dx/t%dy
 
             ! Center cells
             if (.not.((i .eq. 1) .or. (i .eq. t%nx))) then
@@ -367,6 +366,8 @@ subroutine ns_case_y_mom(t)
 
             end if
 
+            t%AvP(i,j) = t%AvW(i,j)+t%AvS(i,j)+t%AvE(i,j)+t%AvN(i,j)+me-mw+mn-ms
+
         end do
     end do
 
@@ -377,7 +378,7 @@ subroutine ns_case_y_mom(t)
 
                 t%V(i,j) = (1.0-t%omegaV)*t%V_old(i,j)+&
                 t%omegaV/t%AvP(i,j)*(t%AvW(i,j)*t%V(i-1,j)+t%AvS(i,j)*t%V(i,j-1)+t%AvE(i,j)*t%V(i+1,j)+t%AvN(i,j)*t%V(i,j+1)+&
-                (t%P(i,j-1)-t%P(i,j+1)*t%dx))
+                (t%P(i,j-1)-t%P(i,j)*t%dx))
 
             end do
         end do
@@ -397,9 +398,11 @@ subroutine ns_case_pressure_corr(t)
             t%AS(i,j) = t%rho*t%dx**2/t%AvP(i,j)
             t%AE(i,j) = t%rho*t%dy**2/t%AuP(i+1,j)
             t%AN(i,j) = t%rho*t%dx**2/t%AvP(i,j+1)
-            t%S(i,j) = t%rho*((t%U(i+1,j)-t%U(i,j))*t%dy+(t%V(i,j+1)-t%V(i,j))*t%dx)
         end do
     end do
+
+    ! Calculate mass source
+    call ns_case_calc_mass_imbal(t)
 
     ! Set boundary coefficients
     t%AW(1,:) = 0.0
@@ -435,14 +438,14 @@ subroutine ns_case_velocity_corr(t)
     ! Update x-velocity
     do i=2,t%nx
         do j=1,t%ny
-            t%U(i,j) = t%U(i,j) + t%dx/t%AuP(i,j)*(t%P_prime(i-1,j)-t%P_prime(i,j))
+            t%U(i,j) = t%U(i,j) + t%dy/t%AuP(i,j)*(t%P_prime(i-1,j)-t%P_prime(i,j))
         end do
     end do
 
     ! Update y-velocity
     do i=1,t%nx
         do j=2,t%ny
-            t%V(i,j) = t%V(i,j) + t%dy/t%AvP(i,j)*(t%P_prime(i,j-1)-t%P_prime(i,j))
+            t%V(i,j) = t%V(i,j) + t%dx/t%AvP(i,j)*(t%P_prime(i,j-1)-t%P_prime(i,j))
         end do
     end do
 

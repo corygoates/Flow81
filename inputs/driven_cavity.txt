@@ -30,7 +30,7 @@
       D       0.0       0.0       0.0
 ! Solver Options
 ! outer iterations
-      0
+     30
 ! omegaU   omegaV    omegaP
     0.7       0.7       0.3
 ! results file
