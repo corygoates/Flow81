@@ -15,7 +15,7 @@
       D       0.0       0.0       0.0
 ! south
 ! U
-      D       0.0       0.0       0.0
+      D      -1.0       0.0       0.0
 ! V
       D       0.0       0.0       0.0
 ! east
@@ -34,4 +34,4 @@
 ! omegaU   omegaV    omegaP
     0.7       0.7       0.3
 ! results file
-results/driven_cavity.csv
+results/top_and_bottom_driven.csv

@@ -277,6 +277,9 @@ subroutine ns_case_run_simple(t)
         t%U_old = t%U
         t%V_old = t%V
 
+        ! Check mass imbalance
+        call ns_case_calc_mass_imbal(t)
+
         ! Update display
         write(*,*) t%outer_i, sqrt(sum(t%S**2))
 
@@ -306,9 +309,14 @@ subroutine ns_case_x_mom(t)
             t%AuW(i,j) = max(mw, 0.0)+t%mu*t%dy/t%dx
             t%AuE(i,j) = max(-me, 0.0)+t%mu*t%dy/t%dx
 
-            ! Boundary cells
-            if ((j .eq. 1) .or. (j .eq. t%ny)) then
+            ! Southern boundary
+            if (j .eq. 1) then
                 t%AuS(i,j) = max(ms, 0.0)+2.0*t%mu*t%dx/t%dy
+                t%AuN(i,j) = max(-mn, 0.0)+t%mu*t%dx/t%dy
+
+            ! Northern boundary
+            else if (j .eq. t%ny) then
+                t%AuS(i,j) = max(ms, 0.0)+t%mu*t%dx/t%dy
                 t%AuN(i,j) = max(-mn, 0.0)+2.0*t%mu*t%dx/t%dy
 
             ! Center cells
@@ -317,18 +325,19 @@ subroutine ns_case_x_mom(t)
                 t%AuN(i,j) = max(-mn, 0.0)+t%mu*t%dx/t%dy
             end if
 
-            t%AuP(i,j) = t%AuW(i,j)+t%AuS(i,j)+t%AuE(i,j)+t%AuN(i,j)+me-mw+mn-ms
+            t%AuP(i,j) = t%AuW(i,j)+t%AuS(i,j)+t%AuE(i,j)+t%AuN(i,j)!+me-mw+mn-ms
 
         end do
     end do
 
     ! Iterate x-momentum
+    t%AuP = t%AuP/t%omegaU
     do iter=1,10
         do i=2,t%nx
             do j=1,t%ny
 
                 t%U(i,j) = (1.0-t%omegaU)*t%U_old(i,j) + &
-                           t%omegaU/t%AuP(i,j)*(&
+                           1.0/t%AuP(i,j)*(&
                            t%AuW(i,j)*t%U(i-1,j) + &
                            t%AuS(i,j)*t%U(i,j-1) + &
                            t%AuE(i,j)*t%U(i+1,j) + &
@@ -361,9 +370,14 @@ subroutine ns_case_y_mom(t)
             t%AvS(i,j) = max(ms, 0.0)+t%mu*t%dx/t%dy
             t%AvN(i,j) = max(-mn, 0.0)+t%mu*t%dx/t%dy
 
-            ! Boundary cells
-            if ((i .eq. 1) .or. (i .eq. t%nx)) then
+            ! Western boundary
+            if (i .eq. 1) then
                 t%AvW(i,j) = max(mw, 0.0)+2.0*t%mu*t%dy/t%dx
+                t%AvE(i,j) = max(-me, 0.0)+t%mu*t%dy/t%dx
+
+            ! Eastern boundary
+            else if (i .eq. t%nx) then
+                t%AvW(i,j) = max(mw, 0.0)+t%mu*t%dy/t%dx
                 t%AvE(i,j) = max(-me, 0.0)+2.0*t%mu*t%dy/t%dx
 
             ! Center cells
@@ -373,23 +387,25 @@ subroutine ns_case_y_mom(t)
 
             end if
 
-            t%AvP(i,j) = t%AvW(i,j)+t%AvS(i,j)+t%AvE(i,j)+t%AvN(i,j)+me-mw+mn-ms
+            t%AvP(i,j) = t%AvW(i,j)+t%AvS(i,j)+t%AvE(i,j)+t%AvN(i,j)!+me-mw+mn-ms
 
         end do
     end do
 
+
     ! Iterate y-momentum
+    t%AvP = t%AvP/t%omegaV
     do iter=1,10
         do i=1,t%nx
             do j=2,t%ny
 
                 t%V(i,j) = (1.0-t%omegaV)*t%V_old(i,j) + &
-                           t%omegaV/t%AvP(i,j)*( &
+                           1.0/t%AvP(i,j)*( &
                            t%AvW(i,j)*t%V(i-1,j) + &
                            t%AvS(i,j)*t%V(i,j-1) + &
                            t%AvE(i,j)*t%V(i+1,j) + &
                            t%AvN(i,j)*t%V(i,j+1) + &
-                           (t%P(i,j-1)-t%P(i,j)*t%dx))
+                           (t%P(i,j-1)-t%P(i,j))*t%dx)
 
             end do
         end do
@@ -412,10 +428,6 @@ subroutine ns_case_pressure_corr(t)
         end do
     end do
 
-    ! Calculate mass source
-    call ns_case_calc_mass_imbal(t)
-    !write(*,*) t%outer_i, sqrt(sum(t%S**2))
-
     ! Set boundary coefficients
     t%AW(1,:) = 0.0
     t%AS(:,1) = 0.0
@@ -425,6 +437,9 @@ subroutine ns_case_pressure_corr(t)
     ! Calculate cell center coefficients
     t%AP = t%AW+t%AS+t%AE+t%AN
     t%AP(1,1) = 1.0e30 ! Reference pressure cell
+
+    ! Calculate mass source
+    call ns_case_calc_mass_imbal(t)
 
     ! Iterate
     t%P_prime = 0.0
@@ -442,7 +457,6 @@ subroutine ns_case_pressure_corr(t)
         end do
     end do
 
-    ! Update pressures
     t%P = t%P+t%omegaP*t%P_prime
 
 end subroutine ns_case_pressure_corr
@@ -465,9 +479,6 @@ subroutine ns_case_velocity_corr(t)
             t%V(i,j) = t%V(i,j) + t%dx/t%AvP(i,j)*(t%P_prime(i,j-1)-t%P_prime(i,j))
         end do
     end do
-
-    ! Check mass imbalance
-    call ns_case_calc_mass_imbal(t)
 
 end subroutine ns_case_velocity_corr
 

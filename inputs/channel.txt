@@ -1,16 +1,16 @@
 ! Driven Cavity Flow
 ! Geometry
 ! x_min     x_max     y_min     y_max
-    0.0       1.0       0.0       1.0
+    0.0      10.0       0.0       1.0
 ! NX        NY
-     31        31
+    301        31
 ! Flow Properties
 ! mu        rho
     0.01      1.0
 ! Boundary Conditions
 ! west
 ! U
-      D       0.0       0.0       0.0
+      D       1.0       0.0       0.0
 ! V
       D       0.0       0.0       0.0
 ! south
@@ -20,12 +20,12 @@
       D       0.0       0.0       0.0
 ! east
 ! U
-      D       0.0       0.0       0.0
+      D       1.0       0.0       0.0
 ! V
       D       0.0       0.0       0.0
 ! north
 ! U
-      D       1.0       0.0       0.0
+      D       0.0       0.0       0.0
 ! V
       D       0.0       0.0       0.0
 ! Solver Options
@@ -34,4 +34,4 @@
 ! omegaU   omegaV    omegaP
     0.7       0.7       0.3
 ! results file
-results/driven_cavity.csv
+results/channel.csv
