@@ -239,11 +239,46 @@ subroutine ns_case_apply_bc(t)
 
     end do
 
-    ! V
-    t%V(:,1) = 0.0 ! South
-    t%V(:,t%ny+1) = 0.0 ! North
-    t%V(0,:) = 0.0 ! West
-    t%V(t%nx+1,:) = 0.0 ! East
+    ! V boundary conditions
+    do j=1,t%ny+1
+
+        ! Get y location
+        y = (j-1.0)*t%dy
+
+        ! West
+        if (t%Vw_bc%type .eq. 'D') then
+            t%V(0,j) = bc_get_value(t%Vw_bc, y)
+        end if
+
+        ! East
+        if (t%Ve_bc%type .eq. 'D') then
+            t%V(t%nx+1,j) = bc_get_value(t%Ve_bc, y)
+        end if
+
+    end do
+
+    do i=0,t%nx+1
+
+        ! Get x location
+        if (i .eq. 0) then
+            x = t%x_min
+        else if (i .eq. t%nx+1) then
+            x = t%x_max
+        else
+            x = (i-0.5)*t%dx
+        end if
+
+        ! South
+        if (t%Vs_bc%type .eq. 'D') then
+            t%V(i,1) = bc_get_value(t%Vs_bc, x)
+        end if
+
+        ! North
+        if (t%Vn_bc%type .eq. 'D') then
+            t%V(i,t%ny+1) = bc_get_value(t%Vn_bc, x)
+        end if
+
+    end do
 
 end subroutine ns_case_apply_bc
 
@@ -533,16 +568,16 @@ subroutine ns_case_write_results(t)
     t%v_out(1:t%nx-1,t%ny) = 0.5*(t%V(1:t%nx-1,t%ny)+t%V(2:t%nx,t%ny))
 
     ! Northwest corner
-    t%P_out(0,t%ny) = t%P_out(1,t%ny-1)
+    t%P_out(0,t%ny) = t%P(1,t%ny)
 
     ! Southwest corner
-    t%P_out(0,0) = t%P_out(1,1)
+    t%P_out(0,0) = t%P(1,1)
 
     ! Southeast corner
-    t%P_out(t%nx,0) = t%P_out(t%nx-1,1)
+    t%P_out(t%nx,0) = t%P(t%nx,1)
 
     ! Northeast corner
-    t%P_out(t%nx,t%ny) = t%P_out(t%nx-1,t%ny-1)
+    t%P_out(t%nx,t%ny) = t%P(t%nx,t%ny)
 
     ! Calculate magnitudes
     t%v_mag_out = sqrt(t%u_out**2+t%v_out**2)
