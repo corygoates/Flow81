@@ -548,24 +548,24 @@ subroutine ns_case_write_results(t)
     end do
 
     ! West boundary
-    t%P_out(0,1:t%ny-1) = 0.5*(t%P(1,1:t%ny-2)+t%P(1,2:t%ny-1))
+    t%P_out(0,1:t%ny-1) = 0.5*(t%P(1,1:t%ny-1)+t%P(1,2:t%ny))
     t%u_out(0,1:t%ny-1) = 0.5*(t%U(1,1:t%ny-1)+t%U(1,2:t%ny))
     t%v_out(0,1:t%ny-1) = t%V(0,2:t%ny)
 
     ! East boundary
-    t%P_out(t%nx,1:t%ny-1) = 0.5*(t%P(t%nx,1:t%ny-2)+t%P(t%nx,2:t%ny-1))
+    t%P_out(t%nx,1:t%ny-1) = 0.5*(t%P(t%nx,1:t%ny-1)+t%P(t%nx,2:t%ny))
     t%u_out(t%nx,1:t%ny-1) = 0.5*(t%U(t%nx+1,1:t%ny-1)+t%U(t%nx+1,2:t%ny))
     t%v_out(t%nx,1:t%ny-1) = t%V(t%nx+1,2:t%ny)
 
     ! South boundary
-    t%P_out(1:t%nx-1,0) = 0.5*(t%P(1:t%nx-2,1)+t%P(2:t%nx-1,1))
+    t%P_out(1:t%nx-1,0) = 0.5*(t%P(1:t%nx-1,1)+t%P(2:t%nx,1))
     t%u_out(1:t%nx-1,0) = t%U(2:t%nx,0)
     t%v_out(1:t%nx-1,0) = 0.5*(t%V(1:t%nx-1,1)+t%V(2:t%nx,1))
 
     ! North boundary
-    t%P_out(1:t%nx-1,t%ny) = 0.5*(t%P(1:t%nx-2,t%ny)+t%P(2:t%nx-1,t%ny))
+    t%P_out(1:t%nx-1,t%ny) = 0.5*(t%P(1:t%nx-1,t%ny)+t%P(2:t%nx,t%ny))
     t%u_out(1:t%nx-1,t%ny) = t%U(2:t%nx,t%ny+1)
-    t%v_out(1:t%nx-1,t%ny) = 0.5*(t%V(1:t%nx-1,t%ny)+t%V(2:t%nx,t%ny))
+    t%v_out(1:t%nx-1,t%ny) = 0.5*(t%V(1:t%nx-1,t%ny+1)+t%V(2:t%nx,t%ny+1))
 
     ! Northwest corner
     t%P_out(0,t%ny) = t%P(1,t%ny)

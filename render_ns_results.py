@@ -11,6 +11,7 @@ if __name__=="__main__":
 
     # Table to points
     points = pvs.TableToPoints(data_reader, XColumn='x', YColumn='y', ZColumn='z')
+    pvs.Show(points)
     
     # Delauney 2D filter
     delaunay = pvs.Delaunay2D(points)
