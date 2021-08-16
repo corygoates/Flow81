@@ -318,6 +318,8 @@ subroutine ns_case_set_neumann_u_bc(t)
     type(ns_case_t) :: t
     integer :: j
 
+    ! TODO: Add north and south
+
     ! West
     if (t%Uw_bc%type .eq. 'N') then
         do j=1,t%ny
@@ -338,6 +340,8 @@ end subroutine ns_case_set_neumann_u_bc
 subroutine ns_case_set_neumann_v_bc(t)
     type(ns_case_t) :: t
     integer :: i
+
+    ! TODO: add west and east
 
     ! South
     if (t%Us_bc%type .eq. 'N') then
@@ -608,43 +612,89 @@ end subroutine ns_case_velocity_corr
 
 subroutine ns_case_ensure_mass_cons(t)
     type(ns_case_t) :: t
-    real(kind=8) :: mass_imbal, corr
-    integer :: N
+    real(kind=8) :: total_mass_imbal, forced_mass_imbal, corr
+    integer :: N_neu, N_dir
 
     ! Calculate total mass imbalance
-    mass_imbal = sum(t%U(1,:)-t%U(t%nx+1,:))*t%dy+sum(t%V(:,1)-t%V(:,t%ny+1))*t%dx
+    total_mass_imbal = sum(t%U(1,:)-t%U(t%nx+1,:))*t%dy+sum(t%V(:,1)-t%V(:,t%ny+1))*t%dx
+
+    ! Calculate forced mass imbalance (due to user-prescribed Dirichlet boundary conditions)
+    forced_mass_imbal = 0.0
+    if (t%Uw_bc%type .eq. 'D') then
+        forced_mass_imbal = forced_mass_imbal+sum(t%U(1,:))*t%dy
+    end if
+    if (t%Ue_bc%type .eq. 'D') then
+        forced_mass_imbal = forced_mass_imbal-sum(t%U(t%nx+1,:))*t%dy
+    end if
+    if (t%Vs_bc%type .eq. 'D') then
+        forced_mass_imbal = forced_mass_imbal+sum(t%V(:,1))*t%dx
+    end if
+    if (t%Vn_bc%type .eq. 'D') then
+        forced_mass_imbal = forced_mass_imbal-sum(t%V(:,t%ny+1))*t%dx
+    end if
 
     ! Determine number of Neumann boundaries which can influence mass conservation
-    N = 0
+    N_neu = 0
     if (t%Uw_bc%type .eq. 'N') then
-        N = N + 1
+        N_neu = N_neu + 1
     end if
     if (t%Ue_bc%type .eq. 'N') then
-        N = N + 1
+        N_neu = N_neu + 1
     end if
     if (t%Vs_bc%type .eq. 'N') then
-        N = N + 1
+        N_neu = N_neu + 1
     end if
     if (t%Vn_bc%type .eq. 'N') then
-        N = N + 1
+        N_neu = N_neu + 1
     end if
 
-    ! Get correction factor
-    corr = mass_imbal/real(N)
+    ! Determine which type of correction is needed
+    ! If there is forced mass imbalance (i.e. finite mass flux
+    ! specified by user), then the non-user-specified boundaries
+    ! can be corrected multiplicatively. Otherwise, an 
+    ! additive correction needs to be made.
+    if (abs(forced_mass_imbal)>1e-12 .and. abs(forced_mass_imbal-total_mass_imbal)>1e-12) then
 
-    ! Apply correction
-    if (t%Uw_bc%type .eq. 'N') then
-        t%U(1,:) = t%U(1,:)-corr
+        ! Mass imbalance can be fixed multiplicatively
+        ! Calculate correction
+        corr = -forced_mass_imbal/(total_mass_imbal-forced_mass_imbal)
+
+        ! Apply correction
+        if (t%Uw_bc%type .eq. 'N') then
+            t%U(1,:) = t%U(1,:)*corr
+        end if
+        if (t%Ue_bc%type .eq. 'N') then
+            t%U(t%nx+1,:) = t%U(t%nx+1,:)*corr
+        end if
+        if (t%Vs_bc%type .eq. 'N') then
+            t%V(:,1) = t%V(:,1)*corr
+        end if
+        if (t%Vn_bc%type .eq. 'N') then
+            t%V(:,t%ny+1) = t%V(:,t%ny+1)*corr
+        end if
+
+    else
+
+        ! Mass imbalance needs to be fixed additively
+        ! Calculate correction
+        corr = (total_mass_imbal-forced_mass_imbal)/real(N_neu)
+
+        ! Apply correction
+        if (t%Uw_bc%type .eq. 'N') then
+            t%U(1,:) = t%U(1,:)-corr
+        end if
+        if (t%Ue_bc%type .eq. 'N') then
+            t%U(t%nx+1,:) = t%U(t%nx+1,:)+corr
+        end if
+        if (t%Vs_bc%type .eq. 'N') then
+            t%V(:,1) = t%V(:,1)-corr
+        end if
+        if (t%Vn_bc%type .eq. 'N') then
+            t%V(:,t%ny+1) = t%V(:,t%ny+1)+corr
+        end if
+
     end if
-    if (t%Ue_bc%type .eq. 'N') then
-        t%U(t%nx+1,:) = t%U(t%nx+1,:)+corr
-    end if
-    if (t%Vs_bc%type .eq. 'N') then
-        t%V(:,1) = t%V(:,1)-corr
-    end if
-    if (t%Vn_bc%type .eq. 'N') then
-        t%V(:,t%ny+1) = t%V(:,t%ny+1)+corr
-    end if
+
 
 end subroutine ns_case_ensure_mass_cons
 
