@@ -18,6 +18,7 @@ module ns_case_m
         real(kind=8),allocatable,dimension(:,:) :: AuP, AuW, AuS, AuE, AuN ! x-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AvP, AvW, AvS, AvE, AvN ! y-mom coefficients
         real(kind=8),allocatable,dimension(:,:) :: AP, AW, AS, AE, AN, S ! pressure coefficients
+        real(kind=8),allocatable,dimension(:) :: x_u, x_v, y_u, y_v ! Velocity control point locations
 
     end type ns_case_t
 
@@ -64,6 +65,11 @@ subroutine ns_case_allocate(t)
     allocate(t%AP(1:t%nx,1:t%ny))
     allocate(t%S(1:t%nx,1:t%ny))
 
+    allocate(t%x_u(1:t%nx+1))
+    allocate(t%y_u(0:t%ny+1))
+    allocate(t%x_v(0:t%nx+1))
+    allocate(t%y_v(1:t%ny+1))
+
     allocated = 1
 
 end subroutine ns_case_allocate
@@ -103,6 +109,11 @@ subroutine ns_case_deallocate(t)
     deallocate(t%AN)
     deallocate(t%AP)
     deallocate(t%S)
+
+    deallocate(t%x_u)
+    deallocate(t%y_u)
+    deallocate(t%x_v)
+    deallocate(t%y_v)
 
     allocated = 0
 
@@ -178,8 +189,11 @@ subroutine ns_case_initialize(t)
     t%U = 0.0
     t%V = 0.0
 
+    ! Set up control point locations
+    call ns_case_setup_control_points(t)
+
     ! Initialize boundary conditions
-    call ns_case_apply_bc(t)
+    call ns_case_set_dirichlet_bc(t)
 
     ! Initialize old values
     t%U_old = t%U
@@ -193,94 +207,153 @@ subroutine ns_case_initialize(t)
 end subroutine ns_case_initialize
 
 
-subroutine ns_case_apply_bc(t)
+subroutine ns_case_setup_control_points(t)
     type(ns_case_t) :: t
     integer :: i,j
-    real(kind=8) :: x, y
+
+    ! U
+    ! Get y location
+    do j=0,t%ny+1
+        if (j.eq.0) then
+            t%y_u(j) = t%y_min
+        else if (j.eq.t%ny+1) then
+            t%y_u(j) = t%y_max
+        else
+            t%y_u(j) = (j-0.5)*t%dy
+        end if
+    end do
+
+    ! Get x location
+    do i=1,t%nx+1
+        t%x_u(i) = (i-1.0)*t%dx
+    end do
+
+    ! V
+    ! Get y location
+    do j=1,t%ny+1
+        t%y_v(j) = (j-1.0)*t%dy
+    end do
+
+    ! Get x location
+    do i=0,t%nx+1
+        if (i .eq. 0) then
+            t%x_v(i) = t%x_min
+        else if (i .eq. t%nx+1) then
+            t%x_v(i) = t%x_max
+        else
+            t%x_v(i) = (i-0.5)*t%dx
+        end if
+    end do
+
+end subroutine ns_case_setup_control_points
+
+
+subroutine ns_case_set_dirichlet_bc(t)
+    type(ns_case_t) :: t
+    integer :: i,j
 
     ! U boundary conditions
-    do j=0,t%ny+1
+    ! West
+    if (t%Uw_bc%type .eq. 'D') then
+        do j=0,t%ny+1
+            t%U(1,j) = bc_get_value(t%Uw_bc, t%y_u(j))
+        end do
+    end if
 
-        ! Get y location
-        if (j.eq.0) then
-            y = t%y_min
-        else if (j.eq.t%ny+1) then
-            y = t%y_max
-        else
-            y = (j-0.5)*t%dy
-        end if
+    ! East
+    if (t%Ue_bc%type .eq. 'D') then
+        do j=0,t%ny+1
+            t%U(t%nx+1,j) = bc_get_value(t%Ue_bc, t%y_u(j))
+        end do
+    end if
 
-        ! West
-        if (t%Uw_bc%type .eq. 'D') then
-            t%U(1,j) = bc_get_value(t%Uw_bc, y)
-        end if
+    ! South
+    if (t%Us_bc%type .eq. 'D') then
+        do i=1,t%nx+1
+            t%U(i,0) = bc_get_value(t%Us_bc, t%x_u(i))
+        end do
+    end if
 
-        ! East
-        if (t%Ue_bc%type .eq. 'D') then
-            t%U(t%nx+1,j) = bc_get_value(t%Ue_bc, y)
-        end if
-
-    end do
-
-    do i=1,t%nx+1
-
-        ! Get x location
-        x = (i-1.0)*t%dx
-
-        ! South
-        if (t%Us_bc%type .eq. 'D') then
-            t%U(i,0) = bc_get_value(t%Us_bc, x)
-        end if
-
-        ! North
-        if (t%Ue_bc%type .eq. 'D') then
-            t%U(i,t%ny+1) = bc_get_value(t%Un_bc, x)
-        end if
-
-    end do
+    ! North
+    if (t%Un_bc%type .eq. 'D') then
+        do i=1,t%nx+1
+            t%U(i,t%ny+1) = bc_get_value(t%Un_bc, t%x_u(i))
+        end do
+    end if
 
     ! V boundary conditions
-    do j=1,t%ny+1
+    ! West
+    if (t%Vw_bc%type .eq. 'D') then
+        do j=1,t%ny+1
+            t%V(0,j) = bc_get_value(t%Vw_bc, t%y_v(j))
+        end do
+    end if
 
-        ! Get y location
-        y = (j-1.0)*t%dy
+    ! East
+    if (t%Ve_bc%type .eq. 'D') then
+        do j=1,t%ny+1
+            t%V(t%nx+1,j) = bc_get_value(t%Ve_bc, t%y_v(j))
+        end do
+    end if
 
-        ! West
-        if (t%Vw_bc%type .eq. 'D') then
-            t%V(0,j) = bc_get_value(t%Vw_bc, y)
-        end if
 
-        ! East
-        if (t%Ve_bc%type .eq. 'D') then
-            t%V(t%nx+1,j) = bc_get_value(t%Ve_bc, y)
-        end if
+    ! South
+    if (t%Vs_bc%type .eq. 'D') then
+        do i=0,t%nx+1
+            t%V(i,1) = bc_get_value(t%Vs_bc, t%x_v(i))
+        end do
+    end if
 
-    end do
+    ! North
+    if (t%Vn_bc%type .eq. 'D') then
+        do i=0,t%nx+1
+            t%V(i,t%ny+1) = bc_get_value(t%Vn_bc, t%x_v(i))
+        end do
+    end if
 
-    do i=0,t%nx+1
+end subroutine ns_case_set_dirichlet_bc
 
-        ! Get x location
-        if (i .eq. 0) then
-            x = t%x_min
-        else if (i .eq. t%nx+1) then
-            x = t%x_max
-        else
-            x = (i-0.5)*t%dx
-        end if
 
-        ! South
-        if (t%Vs_bc%type .eq. 'D') then
-            t%V(i,1) = bc_get_value(t%Vs_bc, x)
-        end if
+subroutine ns_case_set_neumann_u_bc(t)
+    type(ns_case_t) :: t
+    integer :: j
 
-        ! North
-        if (t%Vn_bc%type .eq. 'D') then
-            t%V(i,t%ny+1) = bc_get_value(t%Vn_bc, x)
-        end if
+    ! West
+    if (t%Uw_bc%type .eq. 'N') then
+        do j=1,t%ny
+            t%U(1,j) = t%U(2,j)-bc_get_value(t%Uw_bc, t%y_u(j))*t%dx
+        end do
+    end if
 
-    end do
+    ! East
+    if (t%Ue_bc%type .eq. 'N') then
+        do j=1,t%ny
+            t%U(t%nx+1,j) = t%U(t%nx,j)+bc_get_value(t%Ue_bc, t%y_u(j))*t%dx
+        end do
+    end if
 
-end subroutine ns_case_apply_bc
+end subroutine ns_case_set_neumann_u_bc
+
+
+subroutine ns_case_set_neumann_v_bc(t)
+    type(ns_case_t) :: t
+    integer :: i
+
+    ! South
+    if (t%Us_bc%type .eq. 'N') then
+        do i=1,t%nx
+            t%V(i,1) = t%V(i,2)-bc_get_value(t%Vs_bc, t%x_v(i))*t%dy
+        end do
+    end if
+
+    ! North
+    if (t%Un_bc%type .eq. 'N') then
+        do i=1,t%nx
+            t%V(i,t%ny+1) = t%V(i,t%nx)+bc_get_value(t%Vn_bc, t%x_v(i))*t%dy
+        end do
+    end if
+
+end subroutine ns_case_set_neumann_v_bc
 
 
 subroutine ns_case_run_simple(t)
@@ -324,6 +397,7 @@ subroutine ns_case_run_simple(t)
     call ns_case_write_results(t)
 
 end subroutine ns_case_run_simple
+
 
 subroutine ns_case_x_mom(t)
     type(ns_case_t) :: t
@@ -381,7 +455,14 @@ subroutine ns_case_x_mom(t)
 
             end do
         end do
+
+        ! Update Neumann boundary condition
+        call ns_case_set_neumann_u_bc(t)
+
     end do
+
+    ! Ensure mass conservation on boundaries
+    call ns_case_ensure_mass_cons(t)
 
 end subroutine ns_case_x_mom
 
@@ -444,7 +525,14 @@ subroutine ns_case_y_mom(t)
 
             end do
         end do
+
+        ! Update Neumann boundary condition
+        call ns_case_set_neumann_v_bc(t)
+
     end do
+
+    ! Ensure mass conservation on boundaries
+    call ns_case_ensure_mass_cons(t)
 
 end subroutine ns_case_y_mom
 
@@ -516,6 +604,49 @@ subroutine ns_case_velocity_corr(t)
     end do
 
 end subroutine ns_case_velocity_corr
+
+
+subroutine ns_case_ensure_mass_cons(t)
+    type(ns_case_t) :: t
+    real(kind=8) :: mass_imbal, corr
+    integer :: N
+
+    ! Calculate total mass imbalance
+    mass_imbal = sum(t%U(1,:)-t%U(t%nx+1,:))*t%dy+sum(t%V(:,1)-t%V(:,t%ny+1))*t%dx
+
+    ! Determine number of Neumann boundaries which can influence mass conservation
+    N = 0
+    if (t%Uw_bc%type .eq. 'N') then
+        N = N + 1
+    end if
+    if (t%Ue_bc%type .eq. 'N') then
+        N = N + 1
+    end if
+    if (t%Vs_bc%type .eq. 'N') then
+        N = N + 1
+    end if
+    if (t%Vn_bc%type .eq. 'N') then
+        N = N + 1
+    end if
+
+    ! Get correction factor
+    corr = mass_imbal/real(N)
+
+    ! Apply correction
+    if (t%Uw_bc%type .eq. 'N') then
+        t%U(1,:) = t%U(1,:)-corr
+    end if
+    if (t%Ue_bc%type .eq. 'N') then
+        t%U(t%nx+1,:) = t%U(t%nx+1,:)+corr
+    end if
+    if (t%Vs_bc%type .eq. 'N') then
+        t%V(:,1) = t%V(:,1)-corr
+    end if
+    if (t%Vn_bc%type .eq. 'N') then
+        t%V(:,t%ny+1) = t%V(:,t%ny+1)+corr
+    end if
+
+end subroutine ns_case_ensure_mass_cons
 
 
 subroutine ns_case_calc_mass_imbal(t)
