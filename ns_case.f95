@@ -316,14 +316,19 @@ end subroutine ns_case_set_dirichlet_bc
 
 subroutine ns_case_set_neumann_u_bc(t)
     type(ns_case_t) :: t
-    integer :: j
-
-    ! TODO: Add north and south
+    integer :: i,j
 
     ! West
     if (t%Uw_bc%type .eq. 'N') then
         do j=1,t%ny
             t%U(1,j) = t%U(2,j)-bc_get_value(t%Uw_bc, t%y_u(j))*t%dx
+        end do
+    end if
+
+    ! South
+    if (t%Us_bc%type .eq. 'N') then
+        do i=2,t%nx
+            t%U(i,0) = t%U(i,1)-0.5*bc_get_value(t%Us_bc, t%x_u(i))*t%dy
         end do
     end if
 
@@ -334,20 +339,39 @@ subroutine ns_case_set_neumann_u_bc(t)
         end do
     end if
 
+    ! North
+    if (t%Un_bc%type .eq. 'N') then
+        do i=2,t%nx
+            t%U(i,t%ny+1) = t%U(i,t%ny+1)+0.5*bc_get_value(t%Un_bc, t%x_u(i))*t%dy
+        end do
+    end if
+
 end subroutine ns_case_set_neumann_u_bc
 
 
 subroutine ns_case_set_neumann_v_bc(t)
     type(ns_case_t) :: t
-    integer :: i
+    integer :: i,j
 
-    ! TODO: add west and east
+    ! West
+    if (t%Uw_bc%type .eq. 'N') then
+        do j=2,t%ny
+            t%V(0,j) = t%V(1,j)-0.5*bc_get_value(t%Uw_bc, t%y_v(j))*t%dx
+        end do
+    end if
 
     ! South
     if (t%Us_bc%type .eq. 'N') then
         do i=1,t%nx
             t%V(i,1) = t%V(i,2)-bc_get_value(t%Vs_bc, t%x_v(i))*t%dy
         end do
+    end if
+
+    ! East
+    if (t%Ue_bc%type .eq. 'N') then
+        do j=2,t%ny
+            t%V(t%nx+1,j) = t%V(t%nx,j)+0.5*bc_get_value(t%Vw_bc, t%y_v(j))*t%dx
+        end do 
     end if
 
     ! North
@@ -370,7 +394,7 @@ subroutine ns_case_run_simple(t)
     write(*,*) "-------------------------------------------------"
 
     ! Outer loop of SIMPLE algorithm
-    do outer_i = 1,t%outer_iterations
+    do outer_i = 0,t%outer_iterations
         t%outer_i = outer_i
 
         ! Handle x-momentum
@@ -393,7 +417,9 @@ subroutine ns_case_run_simple(t)
         call ns_case_calc_mass_imbal(t)
 
         ! Update display
-        write(*,*) t%outer_i, sqrt(sum(t%S**2))
+        if (modulo(outer_i, 50) .eq. 0) then
+            write(*,*) t%outer_i, sqrt(sum(t%S**2))
+        end if
 
     end do
 

@@ -22,6 +22,8 @@ if __name__=="__main__":
     # Set color of grid
     point_data = points.PointData
     P_range = point_data[0].GetRange(0)
+    V_range = point_data[2].GetRange(0)
+    print(V_range)
     disp_dl2 = pvs.GetDisplayProperties(delaunay)
     disp_dl2.LookupTable = pvs.MakeBlueToRedLT(P_range[0], P_range[1])
     disp_dl2.ColorArrayName = 'P'
@@ -30,7 +32,7 @@ if __name__=="__main__":
     calc = pvs.Calculator(points, Function='u*iHat+v*jHat+w*kHat')
 
     # Intialize arrow glyph
-    arrow = pvs.Glyph(calc, ScaleArray='V', ScaleFactor=0.2, GlyphType='2D Glyph', OrientationArray='Result')
+    arrow = pvs.Glyph(calc, ScaleArray='V', ScaleFactor=0.2/V_range[1], GlyphType='2D Glyph', OrientationArray='Result')
 
     # Add arrows to view
     pvs.Show(arrow)

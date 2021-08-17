@@ -10,7 +10,7 @@
 ! Boundary Conditions
 ! west
 ! U
-      D       1.0       0.0       0.0
+      D       0.1       0.0       0.0
 ! V
       D       0.0       0.0       0.0
 ! south
